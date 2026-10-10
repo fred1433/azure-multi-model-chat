@@ -13,6 +13,8 @@ public enum TurnStatus
     Empty,
     /// <summary>HTTP 200 blocked by a content filter (finish_reason "content_filter") or refused (stop_reason "refusal").</summary>
     Filtered,
+    /// <summary>HTTP 200 where the model declined: choices[0].message.refusal on Chat Completions.</summary>
+    Refused,
     Failed,
     TimedOut,
     /// <summary>Stopped by the caller (Ctrl+C).</summary>
@@ -36,9 +38,32 @@ public sealed record TurnReport(
     public bool Succeeded => Status == TurnStatus.Ok;
 }
 
+/// <summary>Tokens summed over the turns that sent a request. Incomplete when one of those turns has no count.</summary>
+public sealed record TokenTotal(long Input, long Output, IReadOnlyList<int> TurnsWithoutCount)
+{
+    public bool Complete => TurnsWithoutCount.Count == 0;
+
+    public override string ToString() => Complete
+        ? $"{Input} / {Output}"
+        : $"{Input} / {Output}, incomplete (no count for turn {string.Join(", ", TurnsWithoutCount)})";
+}
+
 public sealed record ModelReport(ModelEntry Entry, IReadOnlyList<string> ConfigProblems, IReadOnlyList<TurnReport> Turns, HttpTrace Trace)
 {
     public bool Skipped => ConfigProblems.Count > 0;
+
+    /// <summary>Conversation total for this model; never presents a partial sum as exact.</summary>
+    public TokenTotal TotalTokens
+    {
+        get
+        {
+            var sent = Turns.Where(t => t.Attempts > 0).ToList();
+            return new TokenTotal(
+                sent.Sum(t => t.Tokens.Input ?? 0),
+                sent.Sum(t => t.Tokens.Output ?? 0),
+                sent.Where(t => t.Tokens.Input is null || t.Tokens.Output is null).Select(t => t.Index).ToList());
+        }
+    }
 }
 
 public sealed record RunReport(DateTimeOffset StartedAt, IReadOnlyList<string> Prompts, IReadOnlyList<ModelReport> Models);
@@ -81,6 +106,13 @@ public sealed class ConversationRunner(
             try
             {
                 return await RunModelAsync(m, config.Run.Prompts, cancellationToken);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // Whatever goes wrong with one model stays in that model's row; the report is always returned.
+                return new ModelReport(m, [], [.. config.Run.Prompts.Select((p, i) =>
+                    new TurnReport(i + 1, p, i == 0 ? TurnStatus.Failed : TurnStatus.NotRun, null, null, TokenCounts.Unknown, null, 0, null,
+                        i == 0 ? $"runner error: {e.GetType().Name}: {e.Message}" : "turn 1 did not succeed (Failed)"))], new HttpTrace());
             }
             finally
             {
@@ -150,8 +182,12 @@ public sealed class ConversationRunner(
                 .Count(r => string.IsNullOrEmpty(r.Text) && !string.IsNullOrEmpty(r.ProtectedData));
 
             var nativeFinish = NativeFinishReason(m.Protocol, lastOk?.ResponseBody) ?? response.FinishReason?.Value;
+            var refusal = NativeRefusal(m.Protocol, lastOk?.ResponseBody)
+                ?? response.Messages.SelectMany(msg => msg.Contents.OfType<ErrorContent>())
+                    .FirstOrDefault(c => c.ErrorCode == "Refusal")?.Message;
             var status = response.FinishReason == ChatFinishReason.Length || nativeFinish is "length" or "max_tokens" ? TurnStatus.Truncated
                 : response.FinishReason == ChatFinishReason.ContentFilter || nativeFinish is "content_filter" or "refusal" ? TurnStatus.Filtered
+                : !string.IsNullOrWhiteSpace(refusal) ? TurnStatus.Refused
                 : string.IsNullOrWhiteSpace(answer) ? TurnStatus.Empty
                 : TurnStatus.Ok;
 
@@ -163,6 +199,7 @@ public sealed class ConversationRunner(
                 {
                     TurnStatus.Truncated => "stopped by the token limit before finishing",
                     TurnStatus.Filtered => $"blocked by the provider ({nativeFinish}); the text returned is not an answer",
+                    TurnStatus.Refused => $"refused: {refusal}",
                     TurnStatus.Empty => "HTTP 200 with no answer text",
                     _ => null,
                 }, signedThinking);
@@ -212,6 +249,27 @@ public sealed class ConversationRunner(
         return string.Join(" <- ", parts);
     }
 
+    /// <summary>choices[0].message.refusal on Chat Completions (Microsoft: check it before using the answer).</summary>
+    static string? NativeRefusal(string protocol, string? body)
+    {
+        if (protocol != Protocols.OpenAIChat) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(body ?? "");
+            var root = doc.RootElement;
+            return root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("choices", out var choices) && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0
+                && choices[0].ValueKind == JsonValueKind.Object
+                && choices[0].TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.Object
+                && message.TryGetProperty("refusal", out var refusal) && refusal.ValueKind == JsonValueKind.String
+                ? refusal.GetString() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>finish_reason (Chat Completions) or stop_reason (Messages), as the server wrote it.</summary>
     static string? NativeFinishReason(string protocol, string? body)
     {
@@ -231,18 +289,25 @@ public sealed class ConversationRunner(
         }
     }
 
-    /// <summary>The server's own words for a non-2xx answer: error.message in both APIs' error bodies.</summary>
+    /// <summary>
+    /// The server's own words for a non-2xx answer: error.message in both APIs' error bodies. Any other shape
+    /// ({"error": null}, {"error": "text"}, not JSON) falls back to the raw body; this code never throws.
+    /// </summary>
     static string? ServerMessage(HttpExchange? exchange)
     {
         if (exchange is not { Status: >= 400 }) return null;
-        var message = exchange.ResponseBody;
+        var message = string.IsNullOrWhiteSpace(exchange.ResponseBody) ? "(empty body)" : exchange.ResponseBody;
         try
         {
             using var doc = JsonDocument.Parse(exchange.ResponseBody ?? "");
-            if (doc.RootElement.TryGetProperty("error", out var error) && error.TryGetProperty("message", out var text))
+            if (doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("error", out var error)
+                && error.ValueKind == JsonValueKind.Object
+                && error.TryGetProperty("message", out var text)
+                && text.ValueKind == JsonValueKind.String)
                 message = text.GetString();
         }
-        catch (JsonException)
+        catch (Exception e) when (e is JsonException or InvalidOperationException)
         {
         }
         return $"HTTP {exchange.Status}: {message}";

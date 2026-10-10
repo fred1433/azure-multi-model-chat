@@ -20,6 +20,7 @@ public sealed record FakeResponse(int Status, string Body);
 /// <item>reasoning_content on non-OpenAI reasoning models: https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-chat-reasoning</item>
 /// <item>Chat Completions error envelope (error.code, error.message) and the content_filter finish reason: https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-chat-reasoning#handle-content-safety-responses</item>
 /// <item>Messages stop_reason "refusal": https://platform.claude.com/docs/en/api/messages/create</item>
+/// <item>choices[0].message.refusal: https://learn.microsoft.com/en-us/azure/developer/ai/how-to/extract-entities-using-structured-outputs#why-checking-for-refusal-is-important</item>
 /// <item>Messages body, stop_reason and usage: https://platform.claude.com/docs/en/api/messages/create</item>
 /// <item>Empty thinking text with a signature (Opus 5.5 default): https://platform.claude.com/docs/en/models/opus-5-5/migration-guide</item>
 /// <item>Messages error envelope: https://platform.claude.com/docs/en/api/errors#error-shapes</item>
@@ -61,11 +62,12 @@ public static class SimulatedFoundry
     }
 
     public static FakeResponse ChatCompletion(
-        string model, string content, string? reasoning = null, string finishReason = "stop",
+        string model, string? content, string? reasoning = null, string finishReason = "stop",
         long? promptTokens = 20, long? completionTokens = 5, long? cachedTokens = 0, long? reasoningTokens = 0,
-        bool includeUsage = true)
+        bool includeUsage = true, string? refusal = null)
     {
         var message = new JsonObject { ["role"] = "assistant", ["content"] = content };
+        if (refusal is not null) message["refusal"] = refusal;
         if (reasoning is not null) message["reasoning_content"] = reasoning;
 
         var body = new JsonObject

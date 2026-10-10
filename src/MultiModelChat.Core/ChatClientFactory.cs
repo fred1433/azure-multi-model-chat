@@ -9,9 +9,9 @@ using OpenAI.Chat;
 namespace MultiModelChat;
 
 /// <summary>
-/// Client construction, the only protocol switch in the call path: each row becomes an <see cref="IChatClient"/>
-/// built from that vendor's official SDK, and the runner calls every model the same way. Options, token reading and
-/// history filtering each have a small per-protocol function (OptionBridge, TokenCounts, ConversationRunner).
+/// Client creation is centralized here; the runner calls every model through <see cref="IChatClient"/>.
+/// The factory configures the connection only: pass <see cref="OptionBridge.CreateChatOptions"/> on each request
+/// to apply the row's options.
 /// </summary>
 public static class ChatClientFactory
 {

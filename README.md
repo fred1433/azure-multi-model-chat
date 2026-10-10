@@ -4,7 +4,7 @@
 
 A .NET 10 console app that sends the same two-turn conversation to every model listed in one configuration table, [`models.json`](models.json), on Microsoft Foundry (GPT, Grok, DeepSeek, Kimi and Claude alike) and prints each answer with its token counts.
 
-**Verification status, 10 October 2026: 0 models run on Azure; tests against simulated responses built from the documented wire formats.** No Azure account was used to build this. It runs against your keys.
+**Verification status, 10 October 2026: 0 models run on Azure; tests against simulated responses built from the documented wire formats.** No Azure account was used to build this. To try a live run, configure your resource names, deployment names and API keys below.
 
 **Simulated output** (from the local stand-in, `--simulate`; these are not model answers):
 
@@ -68,7 +68,7 @@ The C# Foundry client always builds its URL from the resource name and does not 
 ## Why two SDKs behind one interface
 
 1. Microsoft's C# example for the v1 route uses the `OpenAI` package; Anthropic's Foundry page uses `Anthropic.Foundry`. Both are the vendors' own clients.
-2. Both expose `Microsoft.Extensions.AI.IChatClient` (`AsIChatClient`), so the runner has one loop. Client construction ([`ChatClientFactory.cs`](src/MultiModelChat.Core/ChatClientFactory.cs), under 50 lines) is the only protocol switch in the call path; options, token reading and history filtering each have a small per-protocol function ([`OptionBridge.cs`](src/MultiModelChat.Core/OptionBridge.cs), [`TokenCounts.cs`](src/MultiModelChat.Core/TokenCounts.cs)).
+2. Both expose `Microsoft.Extensions.AI.IChatClient` (`AsIChatClient`), so the runner has one loop. Client creation is centralized in [`ChatClientFactory`](src/MultiModelChat.Core/ChatClientFactory.cs); the runner calls every model through `IChatClient`. Options and token reading keep a small per-protocol function ([`OptionBridge.cs`](src/MultiModelChat.Core/OptionBridge.cs), [`TokenCounts.cs`](src/MultiModelChat.Core/TokenCounts.cs)).
 3. A single hand-written `HttpClient` path would mean re-implementing two request formats, retries and Claude's thinking-block round trip.
 4. Microsoft's sample [Azure-Samples/openai-anthropic-taste-test](https://github.com/Azure-Samples/openai-anthropic-taste-test) pairs the same two clients through `IChatClient` (`AnthropicFoundryClient(...).AsIChatClient(...)`); it authenticates with Entra ID and uses the Responses API, where this repo uses API keys and Chat Completions.
 5. Package versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
@@ -125,13 +125,14 @@ What the documentation says about each requested model, as of 10 October 2026. "
 
 ## Tokens, history and failures
 
-- **Tokens, per turn.** Chat Completions: input `prompt_tokens`, output `completion_tokens`; cached and reasoning tokens are already inside those totals and are shown as details only. Messages: input is `input_tokens + cache_creation_input_tokens + cache_read_input_tokens` ([Anthropic](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)), the three parts kept apart; output `output_tokens`. A field the server did not send prints `n/a`, never 0.
+- **Tokens, per turn.** Chat Completions: input `prompt_tokens`, output `completion_tokens`; cached and reasoning tokens are already inside those totals and are shown as details only. Messages: input is `input_tokens + cache_creation_input_tokens + cache_read_input_tokens` ([Anthropic](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)), the three parts kept apart; output `output_tokens`. A field the server did not send prints `n/a`, never 0. Each model also gets a conversation total, marked incomplete when a turn that sent a request has no count.
+- **Full answers.** The table shows the first 40 characters; the full text of every answer, line breaks kept, follows it, partial answers included with their status.
 - **History.** The API keeps no state, so turn 2 resends turn 1. The history is the SDK's own message objects, never text rebuilt from the display. Claude's thinking blocks go back complete and in order, including the empty-text block that carries a signature ([Anthropic](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking)). `reasoning_content` from Kimi or DeepSeek is shown apart from the answer and not sent back, as Microsoft advises ([Microsoft](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-chat-reasoning#read-reasoning-content)).
-- **Failures stay local.** Models run in parallel (bounded by `run.maxParallel`), each with its own deadline. A timeout, an HTTP error, an empty HTTP 200, a response stopped by the token limit (`finish_reason: length`, `stop_reason: max_tokens`) or one blocked by the provider (`finish_reason: content_filter`, [Microsoft](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-chat-reasoning#handle-content-safety-responses); `stop_reason: refusal`, [Anthropic](https://platform.claude.com/docs/en/api/messages/create)) marks that model's turn as failed; its turn 2 shows "not run" with the reason, and the other models carry on. Every HTTP attempt is counted, SDK retries included. A network error keeps its cause (the host that could not be reached). Ctrl+C prints the report with the interrupted turns marked "cancelled".
+- **Failures stay local.** Models run in parallel (bounded by `run.maxParallel`), each with its own deadline. A timeout, an HTTP error, an empty HTTP 200, a response stopped by the token limit (`finish_reason: length`, `stop_reason: max_tokens`), one refused (`message.refusal`, [Microsoft](https://learn.microsoft.com/en-us/azure/developer/ai/how-to/extract-entities-using-structured-outputs#why-checking-for-refusal-is-important)) or one blocked by the provider (`finish_reason: content_filter`, [Microsoft](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-chat-reasoning#handle-content-safety-responses); `stop_reason: refusal`, [Anthropic](https://platform.claude.com/docs/en/api/messages/create)) marks that model's turn as failed; its turn 2 shows "not run" with the reason, and the other models carry on. Every HTTP attempt is counted, SDK retries included. A network error keeps its cause (the host that could not be reached). Ctrl+C prints the report with the interrupted turns marked "cancelled".
 
 ## Tests
 
-`dotnet test` runs 43 xUnit tests. The stand-in Foundry endpoint is a real HTTP server on `127.0.0.1` (Kestrel); the SDKs' requests are redirected to it with their path and query unchanged, and it records each request body and header. Each response shape it returns cites its documentation page in [`SimulatedFoundry.cs`](src/MultiModelChat.Simulation/SimulatedFoundry.cs).
+`dotnet test` runs 48 xUnit tests. The stand-in Foundry endpoint is a real HTTP server on `127.0.0.1` (Kestrel); the SDKs' requests are redirected to it with their path and query unchanged, and it records each request body and header. Each response shape it returns cites its documentation page in [`SimulatedFoundry.cs`](src/MultiModelChat.Simulation/SimulatedFoundry.cs).
 
 | Covered | Test file |
 |---|---|
@@ -142,6 +143,8 @@ What the documentation says about each requested model, as of 10 October 2026. "
 | turn 2 request = first prompt, that model's own answer, second prompt; signed empty thinking block survives | ConversationTests |
 | truncated, filtered (`content_filter`, `refusal`) or empty HTTP 200 counted as failures; turn 2 "not run" after a failed turn 1 | ConversationTests |
 | network error keeps its cause on both protocols; cancelling returns a report | ConversationTests |
+| `message.refusal` with `finish_reason: stop` is "refused" with its text; `{"error": null}` or `{"error": "bad request"}` on one model never loses the others' results | [ReportTests](tests/MultiModelChat.Tests/ReportTests.cs) |
+| full multiline answers printed after the table; conversation token total marked incomplete when a count is missing; the README reuse example applies the row's options | ReportTests |
 | slow model times out on its own deadline while the others finish; retries follow the row and every attempt is counted | ConversationTests |
 | Anthropic 10 + 20 + 30 gives 60 input; OpenAI 60 with 30 cached stays 60; absent field is `n/a` | [TokenTests](tests/MultiModelChat.Tests/TokenTests.cs) |
 | the shipped `models.json` runs both turns on all nine rows in simulation | ConversationTests |
@@ -165,7 +168,20 @@ foreach (var model in report.Models)
         Console.WriteLine($"{model.Entry.Name} turn {turn.Index}: {turn.Status} {turn.Answer} ({turn.Tokens.InOut})");
 ```
 
-Or take a single `IChatClient` for one row with `ChatClientFactory.Create(row, apiKey, httpClient)` and call it like any other `Microsoft.Extensions.AI` client. The projects target `net10.0`, the current LTS ([.NET support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core)).
+To call one row directly, take its `IChatClient` and pass the row's options on each request:
+
+```csharp
+using var client = ChatClientFactory.Create(row, apiKey, httpClient);
+
+var response = await client.GetResponseAsync(
+    messages,
+    options: OptionBridge.CreateChatOptions(row),
+    cancellationToken: cancellationToken);
+```
+
+The factory configures the client connection. Pass `OptionBridge.CreateChatOptions(row)` on each request to apply the row's options. Use `ConversationRunner` for configuration validation, conversation history, failure handling and normalized token counts.
+
+The projects target `net10.0`, the current LTS ([.NET support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core)).
 
 ```
 src/MultiModelChat.Core         runner, client factory, options, token normalization (the reusable part)

@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\MultiModelChat.Core\MultiModelChat.Core.csproj" />
     <ProjectReference Include="..\..\src\MultiModelChat.Simulation\MultiModelChat.Simulation.csproj" />
+    <ProjectReference Include="..\..\src\MultiModelChat.Console\MultiModelChat.Console.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\models.json" Link="models.json" CopyToOutputDirectory="PreserveNewest" />
