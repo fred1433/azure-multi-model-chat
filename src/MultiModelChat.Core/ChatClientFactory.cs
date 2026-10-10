@@ -9,8 +9,9 @@ using OpenAI.Chat;
 namespace MultiModelChat;
 
 /// <summary>
-/// The only place where the two protocols differ: each row becomes an <see cref="IChatClient"/>
-/// built from that vendor's official SDK. Everything after this uses one code path.
+/// Client construction, the only protocol switch in the call path: each row becomes an <see cref="IChatClient"/>
+/// built from that vendor's official SDK, and the runner calls every model the same way. Options, token reading and
+/// history filtering each have a small per-protocol function (OptionBridge, TokenCounts, ConversationRunner).
 /// </summary>
 public static class ChatClientFactory
 {

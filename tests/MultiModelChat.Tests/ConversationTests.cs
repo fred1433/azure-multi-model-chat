@@ -98,6 +98,68 @@ public class ConversationTests
         Assert.Equal(TurnStatus.NotRun, report.Models[0].Turns[1].Status);
     }
 
+    [Theory]
+    [InlineData(Protocols.OpenAIChat, "content_filter")]
+    [InlineData(Protocols.AnthropicMessages, "refusal")]
+    public async Task Http_200_blocked_by_the_provider_is_filtered_not_ok(string protocol, string reason)
+    {
+        await using var server = await FakeFoundryServer.StartAsync();
+        server.Responder = (r, _) => Task.FromResult(protocol == Protocols.OpenAIChat
+            ? SimulatedFoundry.ChatCompletion(r.Model!, "blocked", finishReason: reason)
+            : SimulatedFoundry.Message(r.Model!, "blocked", stopReason: reason));
+        var row = protocol == Protocols.OpenAIChat ? ChatRow("m") : ClaudeRow("m");
+
+        var report = await Runner(server).RunAsync(Config(row), TestContext.Current.CancellationToken);
+
+        var turns = report.Models[0].Turns;
+        Assert.Equal(TurnStatus.Filtered, turns[0].Status);
+        Assert.Equal(reason, turns[0].FinishReason);
+        Assert.Contains(reason, turns[0].Detail);
+        Assert.Equal(TurnStatus.NotRun, turns[1].Status);
+        Assert.Single(server.Requests);
+    }
+
+    [Theory]
+    [InlineData(Protocols.OpenAIChat)]
+    [InlineData(Protocols.AnthropicMessages)]
+    public async Task Network_error_keeps_its_cause_for_both_protocols(string protocol)
+    {
+        var row = protocol == Protocols.OpenAIChat ? ChatRow("m") : ClaudeRow("m");
+        var runner = new ConversationRunner(() => new FailingHandler(), name => Keys.GetValueOrDefault(name));
+
+        var report = await runner.RunAsync(Config(row), TestContext.Current.CancellationToken);
+
+        var turn = report.Models[0].Turns[0];
+        Assert.Equal(TurnStatus.Failed, turn.Status);
+        Assert.Contains("Name or service not known (res1.example:443)", turn.Detail);
+    }
+
+    sealed class FailingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new HttpRequestException("Name or service not known (res1.example:443)");
+    }
+
+    [Fact]
+    public async Task Cancelling_the_run_returns_a_report_with_cancelled_turns()
+    {
+        await using var server = await FakeFoundryServer.StartAsync();
+        server.Responder = async (r, ct) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(20), ct);
+            return SimulatedFoundry.Respond(r);
+        };
+        using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+
+        var report = await Runner(server).RunAsync(Config(ChatRow("a"), ClaudeRow("b")), cancel.Token);
+
+        Assert.All(report.Models, m =>
+        {
+            Assert.Equal(TurnStatus.Cancelled, m.Turns[0].Status);
+            Assert.Equal(TurnStatus.NotRun, m.Turns[1].Status);
+        });
+    }
+
     [Fact]
     public async Task Http_200_with_empty_answer_is_a_failure()
     {

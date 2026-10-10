@@ -82,7 +82,7 @@ public class OptionTests
         await using var server = await FakeFoundryServer.StartAsync();
         // Error envelope documented by Microsoft for Chat Completions; the message text is illustrative.
         server.Responder = (r, _) => Task.FromResult(SimulatedFoundry.ChatCompletionsError(400,
-            "Unsupported parameter: 'temperature' is not supported with this model.", "temperature", "unsupported_parameter"));
+            "Unsupported parameter: 'temperature' is not supported with this model.", "unsupported_parameter"));
 
         var report = await Runner(server).RunAsync(
             Config(ChatRow("gpt-5.6-terra", options: """{"temperature":0.2}""", maxRetries: 2)), TestContext.Current.CancellationToken);

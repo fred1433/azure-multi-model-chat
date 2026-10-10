@@ -11,8 +11,12 @@ public enum TurnStatus
     Truncated,
     /// <summary>HTTP 200 with no answer text.</summary>
     Empty,
+    /// <summary>HTTP 200 blocked by a content filter (finish_reason "content_filter") or refused (stop_reason "refusal").</summary>
+    Filtered,
     Failed,
     TimedOut,
+    /// <summary>Stopped by the caller (Ctrl+C).</summary>
+    Cancelled,
     NotRun,
 }
 
@@ -64,7 +68,16 @@ public sealed class ConversationRunner(
             if (problems[m].Count > 0)
                 return new ModelReport(m, problems[m], [], new HttpTrace());
 
-            await gate.WaitAsync(cancellationToken);
+            try
+            {
+                await gate.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return new ModelReport(m, [], [.. config.Run.Prompts.Select((p, i) =>
+                    new TurnReport(i + 1, p, TurnStatus.Cancelled, null, null, TokenCounts.Unknown, null, 0, null, "cancelled before start"))], new HttpTrace());
+            }
+
             try
             {
                 return await RunModelAsync(m, config.Run.Prompts, cancellationToken);
@@ -138,6 +151,7 @@ public sealed class ConversationRunner(
 
             var nativeFinish = NativeFinishReason(m.Protocol, lastOk?.ResponseBody) ?? response.FinishReason?.Value;
             var status = response.FinishReason == ChatFinishReason.Length || nativeFinish is "length" or "max_tokens" ? TurnStatus.Truncated
+                : response.FinishReason == ChatFinishReason.ContentFilter || nativeFinish is "content_filter" or "refusal" ? TurnStatus.Filtered
                 : string.IsNullOrWhiteSpace(answer) ? TurnStatus.Empty
                 : TurnStatus.Ok;
 
@@ -148,6 +162,7 @@ public sealed class ConversationRunner(
                 exchanges.Count, nativeFinish, status switch
                 {
                     TurnStatus.Truncated => "stopped by the token limit before finishing",
+                    TurnStatus.Filtered => $"blocked by the provider ({nativeFinish}); the text returned is not an answer",
                     TurnStatus.Empty => "HTTP 200 with no answer text",
                     _ => null,
                 }, signedThinking);
@@ -157,11 +172,16 @@ public sealed class ConversationRunner(
             return new(index, prompt, TurnStatus.TimedOut, null, null, TokenCounts.Unknown, stopwatch.Elapsed,
                 trace.Count - firstExchange, null, $"no answer within {m.TimeoutSeconds}s");
         }
-        catch (Exception e) when (e is not OperationCanceledException)
+        catch (OperationCanceledException)
+        {
+            return new(index, prompt, TurnStatus.Cancelled, null, null, TokenCounts.Unknown, stopwatch.Elapsed,
+                trace.Count - firstExchange, null, "cancelled by the user");
+        }
+        catch (Exception e)
         {
             var exchanges = trace.Since(firstExchange);
             return new(index, prompt, TurnStatus.Failed, null, null, TokenCounts.Unknown, stopwatch.Elapsed,
-                exchanges.Count, null, ServerMessage(exchanges.LastOrDefault()) ?? $"{e.GetType().Name}: {e.Message}");
+                exchanges.Count, null, ServerMessage(exchanges.LastOrDefault()) ?? Describe(e));
         }
     }
 
@@ -177,6 +197,20 @@ public sealed class ConversationRunner(
             clone.Contents = [.. msg.Contents.Where(c => c is not TextReasoningContent)];
             return clone;
         });
+
+    /// <summary>
+    /// The exception and its causes. SDKs wrap network errors (Anthropic: AnthropicIOException "I/O exception"),
+    /// so the inner messages are what name the host that could not be reached.
+    /// </summary>
+    static string Describe(Exception e)
+    {
+        var parts = new List<string> { $"{e.GetType().Name}: {e.Message}" };
+        for (var inner = e.InnerException; inner is not null; inner = inner.InnerException)
+        {
+            if (!parts.Any(p => p.Contains(inner.Message))) parts.Add(inner.Message);
+        }
+        return string.Join(" <- ", parts);
+    }
 
     /// <summary>finish_reason (Chat Completions) or stop_reason (Messages), as the server wrote it.</summary>
     static string? NativeFinishReason(string protocol, string? body)

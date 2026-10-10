@@ -18,7 +18,8 @@ public sealed record FakeResponse(int Status, string Body);
 /// <list type="bullet">
 /// <item>Chat Completions body and usage: https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning</item>
 /// <item>reasoning_content on non-OpenAI reasoning models: https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-chat-reasoning</item>
-/// <item>Chat Completions error envelope: https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure#known-issue</item>
+/// <item>Chat Completions error envelope (error.code, error.message) and the content_filter finish reason: https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-chat-reasoning#handle-content-safety-responses</item>
+/// <item>Messages stop_reason "refusal": https://platform.claude.com/docs/en/api/messages/create</item>
 /// <item>Messages body, stop_reason and usage: https://platform.claude.com/docs/en/api/messages/create</item>
 /// <item>Empty thinking text with a signature (Opus 5.5 default): https://platform.claude.com/docs/en/models/opus-5-5/migration-guide</item>
 /// <item>Messages error envelope: https://platform.claude.com/docs/en/api/errors#error-shapes</item>
@@ -127,11 +128,11 @@ public static class SimulatedFoundry
         return new(200, body.ToJsonString());
     }
 
-    /// <summary>Chat Completions error envelope (error.message, type, param, code).</summary>
-    public static FakeResponse ChatCompletionsError(int status, string message, string? param, string code) =>
+    /// <summary>Chat Completions error envelope (error.code, error.message).</summary>
+    public static FakeResponse ChatCompletionsError(int status, string message, string code) =>
         new(status, new JsonObject
         {
-            ["error"] = new JsonObject { ["message"] = message, ["type"] = "invalid_request_error", ["param"] = param, ["code"] = code },
+            ["error"] = new JsonObject { ["code"] = code, ["message"] = message },
         }.ToJsonString());
 
     /// <summary>Messages error envelope (type "error", error.type, error.message, request_id).</summary>
