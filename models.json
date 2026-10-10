@@ -1,0 +1,184 @@
+{
+  "run": {
+    "maxParallel": 4,
+    "prompts": [
+      "Booking note: Morgan reserved three rooms in Porto. Which city is mentioned? Answer with the city only.",
+      "How many rooms were reserved? Answer with the number only."
+    ]
+  },
+  "models": [
+    {
+      "name": "Kimi K2.6",
+      "catalogId": "Kimi-K2.6",
+      "deployment": "Kimi-K2.6",
+      "protocol": "openai-chat",
+      "baseUrl": "https://YOUR-RESOURCE.openai.azure.com/openai/v1/",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": {},
+      "timeoutSeconds": 120,
+      "maxRetries": 0,
+      "notes": "Preview. chat-completion with reasoning content: reasoning_content is shown apart from the answer and not sent back in the history.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure?pivots=azure-direct-others#moonshot-ai-models-sold-by-azure",
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-chat-reasoning#read-reasoning-content"
+      ]
+    },
+    {
+      "name": "Claude Haiku 5.5",
+      "catalogId": "claude-haiku-5-5",
+      "deployment": "claude-haiku-5-5",
+      "protocol": "anthropic-messages",
+      "resourceName": "YOUR-RESOURCE",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": { "max_tokens": 4096 },
+      "timeoutSeconds": 120,
+      "maxRetries": 0,
+      "notes": "Microsoft lists top_k, temperature and thinking={type:enabled} as not supported; top_p must be 0.99 (the default when omitted). None of them is sent here.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-from-partners#anthropic",
+        "https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry"
+      ]
+    },
+    {
+      "name": "Claude Opus 5.5",
+      "catalogId": "claude-opus-5-5",
+      "deployment": "claude-opus-5-5",
+      "protocol": "anthropic-messages",
+      "resourceName": "YOUR-RESOURCE",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": { "max_tokens": 4096, "output_config": { "effort": "low" } },
+      "timeoutSeconds": 180,
+      "maxRetries": 0,
+      "notes": "Adaptive thinking is always on and max_tokens covers thinking plus text, so no thinking field is sent and effort is set low. Anthropic documents thinking={type:disabled} as rejected; Microsoft's table describes it as capping effort at high. Documented, not tested.",
+      "docs": [
+        "https://platform.claude.com/docs/en/models/opus-5-5/migration-guide",
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-from-partners#anthropic"
+      ]
+    },
+    {
+      "name": "GPT-6 Astra",
+      "catalogId": "gpt-6-astra",
+      "deployment": "gpt-6-astra",
+      "protocol": "openai-chat",
+      "baseUrl": "https://YOUR-RESOURCE.openai.azure.com/openai/v1/",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": { "max_completion_tokens": 4096 },
+      "timeoutSeconds": 120,
+      "maxRetries": 0,
+      "notes": "Reasoning model; the one Microsoft exempts from the temperature/top_p/max_tokens restriction. Some quota tiers need a quota request for the GPT-6 family.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning#unsupported-parameters",
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure#gpt-6"
+      ]
+    },
+    {
+      "name": "GPT-5.4 mini",
+      "catalogId": "gpt-5.4-mini",
+      "deployment": "gpt-5.4-mini",
+      "protocol": "openai-chat",
+      "baseUrl": "https://YOUR-RESOURCE.openai.azure.com/openai/v1/",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": { "max_completion_tokens": 4096 },
+      "timeoutSeconds": 120,
+      "maxRetries": 0,
+      "notes": "Reasoning model: temperature, top_p, max_tokens and the penalties are listed as unsupported; the cap is max_completion_tokens.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning#unsupported-parameters",
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure#gpt-54"
+      ]
+    },
+    {
+      "name": "Grok 4.7",
+      "catalogId": "grok-4.7",
+      "deployment": "grok-4.7",
+      "protocol": "openai-chat",
+      "baseUrl": "https://YOUR-RESOURCE.openai.azure.com/openai/v1/",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": {},
+      "timeoutSeconds": 120,
+      "maxRetries": 0,
+      "notes": "Listed with the Chat Completions API and the Responses API. No optional parameter sent.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure?pivots=azure-direct-others#spacexai-models-sold-by-azure"
+      ]
+    },
+    {
+      "name": "GPT-5.6 Terra",
+      "catalogId": "gpt-5.6-terra",
+      "deployment": "gpt-5.6-terra",
+      "protocol": "openai-chat",
+      "baseUrl": "https://YOUR-RESOURCE.openai.azure.com/openai/v1/",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": { "max_completion_tokens": 4096 },
+      "timeoutSeconds": 120,
+      "maxRetries": 0,
+      "notes": "Reasoning model, same parameter restriction as GPT-5.4 mini. Some quota tiers need a quota request for gpt-5.6.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning#unsupported-parameters",
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure#gpt-56"
+      ]
+    },
+    {
+      "name": "GPT-5.6 Luna",
+      "catalogId": "gpt-5.6-luna",
+      "deployment": "gpt-5.6-luna",
+      "protocol": "openai-chat",
+      "baseUrl": "https://YOUR-RESOURCE.openai.azure.com/openai/v1/",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": { "max_completion_tokens": 4096 },
+      "timeoutSeconds": 120,
+      "maxRetries": 0,
+      "notes": "Reasoning model, same parameter restriction as GPT-5.4 mini. Some quota tiers need a quota request for gpt-5.6.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning#unsupported-parameters",
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure#gpt-56"
+      ]
+    },
+    {
+      "name": "DeepSeek V4 Flash",
+      "catalogId": "DeepSeek-V4-Flash",
+      "deployment": "DeepSeek-V4-Flash",
+      "protocol": "openai-chat",
+      "baseUrl": "https://YOUR-RESOURCE.openai.azure.com/openai/v1/",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": {},
+      "timeoutSeconds": 120,
+      "maxRetries": 0,
+      "notes": "chat-completion with reasoning content: reasoning_content is shown apart from the answer and not sent back in the history.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure?pivots=azure-direct-others#deepseek-models-sold-by-azure",
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-chat-reasoning#read-reasoning-content"
+      ]
+    },
+    {
+      "name": "Mistral Large 3",
+      "catalogId": "Mistral-Large-3",
+      "deployment": "Mistral-Large-3",
+      "protocol": "openai-chat",
+      "baseUrl": "https://YOUR-RESOURCE.openai.azure.com/openai/v1/",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": {},
+      "enabled": false,
+      "suggested": true,
+      "notes": "Suggested, not requested, untested. Preview. Listed with eleven languages (en, fr, de, es, it, pt, nl, zh, ja, ko, ar) and Text or JSON response formats: a candidate when the text to parse is not in English.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure?pivots=azure-direct-others#mistral-models-sold-by-azure"
+      ]
+    },
+    {
+      "name": "Grok 4.1 Fast (non-reasoning)",
+      "catalogId": "grok-4.1-fast-non-reasoning",
+      "deployment": "grok-4.1-fast-non-reasoning",
+      "protocol": "openai-chat",
+      "baseUrl": "https://YOUR-RESOURCE.openai.azure.com/openai/v1/",
+      "apiKeyEnv": "FOUNDRY_API_KEY",
+      "options": {},
+      "enabled": false,
+      "suggested": true,
+      "notes": "Suggested, not requested, untested. Microsoft describes the Grok models as designed for use cases such as data extraction; this variant is listed without a Preview tag and without reasoning.",
+      "docs": [
+        "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure?pivots=azure-direct-others#spacexai-models-sold-by-azure"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore -c Release
+      - name: Test (fake Foundry server on 127.0.0.1, no network, no key)
+        run: dotnet test --no-build -c Release
+      - name: Simulated run of the shipped models.json
+        run: dotnet run --no-build -c Release --project src/MultiModelChat.Console -- --simulate

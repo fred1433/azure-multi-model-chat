@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>MultiModelChat</RootNamespace>
+    <!-- SCME0001: JsonPatch (ChatCompletionOptions.Patch) is marked experimental in the OpenAI SDK. -->
+    <NoWarn>$(NoWarn);SCME0001;OPENAI001</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenAI" />
+    <PackageReference Include="Anthropic" />
+    <PackageReference Include="Anthropic.Foundry" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+  </ItemGroup>
+</Project>

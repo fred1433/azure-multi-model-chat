@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MultiModelChat.Console/MultiModelChat.Console.csproj" />
+    <Project Path="src/MultiModelChat.Core/MultiModelChat.Core.csproj" />
+    <Project Path="src/MultiModelChat.Simulation/MultiModelChat.Simulation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MultiModelChat.Tests/MultiModelChat.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>MultiModelChat.Tests</RootNamespace>
+    <NoWarn>$(NoWarn);SCME0001;OPENAI001</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Kestrel hosts the fake Foundry endpoint on a loopback socket. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MultiModelChat.Core\MultiModelChat.Core.csproj" />
+    <ProjectReference Include="..\..\src\MultiModelChat.Simulation\MultiModelChat.Simulation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\models.json" Link="models.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

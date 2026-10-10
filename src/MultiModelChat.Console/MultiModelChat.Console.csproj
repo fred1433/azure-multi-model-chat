@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MultiModelChat.ConsoleApp</RootNamespace>
+    <AssemblyName>multi-model-chat</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MultiModelChat.Core\MultiModelChat.Core.csproj" />
+    <ProjectReference Include="..\MultiModelChat.Simulation\MultiModelChat.Simulation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\models.json" Link="models.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
