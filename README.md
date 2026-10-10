@@ -24,9 +24,9 @@ Turn 1: *Booking note: Morgan reserved three rooms in Porto. Which city is menti
 Turn 2: *How many rooms were reserved? Answer with the number only.* (The room count is only in turn 1, so turn 2 needs the history.)
 
 ```bash
-export FOUNDRY_API_KEY="<key of your Foundry resource>"   # each row names its own variable in apiKeyEnv
-dotnet run --project src/MultiModelChat.Console            # live, against models.json
-dotnet run --project src/MultiModelChat.Console -- --simulate   # no network, no key
+export FOUNDRY_API_KEY="<your key>"    # variable named by apiKeyEnv
+dotnet run --project src/MultiModelChat.Console                # live
+dotnet run --project src/MultiModelChat.Console -- --simulate  # no network, no key
 ```
 
 Before a live run, replace `YOUR-RESOURCE` in [`models.json`](models.json) and set each `deployment` to your deployment name. Rows with a missing key or a placeholder are listed and skipped before any request is sent.
