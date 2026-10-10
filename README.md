@@ -48,7 +48,7 @@ Before a live run, replace `YOUR-RESOURCE` in [`models.json`](models.json) and s
 
 ## One table, two protocols
 
-Foundry serves most models through an OpenAI-compatible route, and Claude through Anthropic's Messages API. The request shape, the token field names and the way reasoning comes back differ between the two, so "the same code for every model" holds above one small factory, not below it.
+Foundry serves most models through an OpenAI-compatible route, and Claude through Anthropic's Messages API. The request shape, the token field names and the way reasoning comes back differ between the two, so "the same code for every model" holds for the run loop; client creation, options and token reading each keep one small function per protocol.
 
 - `openai-chat` rows (GPT, Grok, DeepSeek, Kimi) call `https://<resource>.openai.azure.com/openai/v1/chat/completions`; the `services.ai.azure.com` host is also accepted, and the v1 route takes no `api-version` ([Microsoft](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/endpoints)).
 - `anthropic-messages` rows (Claude) call `https://<resource>.services.ai.azure.com/anthropic/v1/messages` ([Anthropic](https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry)).
